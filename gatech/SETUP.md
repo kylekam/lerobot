@@ -1,5 +1,5 @@
 # Setup
-1. Install VPN for PACE-ICE access
+1. Install VPN for PACE-ICE access. [Download instructions.](https://gatech.service-now.com/home#globalprotect-vpn-client)
 2. Enable VPN everytime before logging into PACE.
 3. Login to PACE and enter password.
 `ssh <user_name>@login-ice.pace.gatech.edu`
@@ -9,7 +9,6 @@
 
 ### Resources
 [Using Slurm on ICE.](https://gatech.service-now.com/home?id=kb_article_view&sysparm_article=KB0042096)
-
 
 # Datasets to Evaluate On
 - Robomimic
