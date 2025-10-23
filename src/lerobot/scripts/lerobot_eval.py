@@ -583,7 +583,7 @@ def eval_main(cfg: EvalPipelineConfig):
             videos_dir=Path(cfg.output_dir) / "videos",
             start_seed=cfg.seed,
             max_parallel_tasks=cfg.env.max_parallel_tasks,
-            visualize_noise=cfg.vis_noise,
+            visualize_noise=cfg.eval.vis_noise,
         )
         print("Overall Aggregated Metrics:")
         print(info["overall"])
@@ -708,7 +708,7 @@ def eval_policy_all(
     return_episode_data: bool = False,
     start_seed: int | None = None,
     max_parallel_tasks: int = 1,
-    vis_noise: bool = False
+    visualize_noise: bool = False
 ) -> dict:
     """
     Evaluate a nested `envs` dict: {task_group: {task_id: vec_env}}.
@@ -762,7 +762,7 @@ def eval_policy_all(
         videos_dir=videos_dir,
         return_episode_data=return_episode_data,
         start_seed=start_seed,
-        vis_noise=vis_noise,
+        vis_noise=visualize_noise,
     )
 
     if max_parallel_tasks <= 1:
