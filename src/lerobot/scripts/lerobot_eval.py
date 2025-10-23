@@ -430,7 +430,7 @@ def eval_policy(
             ):
                 if n_episodes_rendered >= max_episodes_rendered:
                     break
-                if True: # this math needs to be checked
+                if vis_noise: # this math needs to be checked
                     traj_len = policy.config.horizon
                     num_init_frames = np.floor((done_index+1) / traj_len)
                     actual_done_index = num_init_frames*20 + done_index + traj_len
