@@ -248,6 +248,7 @@ def eval_policy(
     videos_dir: Path | None = None,
     return_episode_data: bool = False,
     start_seed: int | None = None,
+    vis_noise: bool = False,
 ) -> dict:
     """
     Args:
@@ -344,15 +345,11 @@ def eval_policy(
         
         # Set figure size based on DPI
         img = rendered_frames[0]
-        if isinstance(noise_to_traj, np.ndarray):
+        if vis_noise and isinstance(noise_to_traj, np.ndarray):
             colors = plt.get_cmap('plasma')(np.linspace(0, 1, noise_to_traj.shape[1]))
             for noised_action in noise_to_traj[-20:]: # iterate through timestep
                 result = draw_pts_on_img(img, noised_action, colors)
                 ep_frames.append(result[None,:])
-        # elif isinstance(action, np.ndarray):
-        #     colors = plt.get_cmap('plasma')(np.linspace(0, 1, len(action)))
-        #     result = draw_pts_on_img(img, action, colors)
-        #     ep_frames.append(result[None,:])
         else:
             ep_frames.append(rendered_frames)
 
@@ -586,6 +583,7 @@ def eval_main(cfg: EvalPipelineConfig):
             videos_dir=Path(cfg.output_dir) / "videos",
             start_seed=cfg.seed,
             max_parallel_tasks=cfg.env.max_parallel_tasks,
+            visualize_noise=cfg.vis_noise,
         )
         print("Overall Aggregated Metrics:")
         print(info["overall"])
@@ -626,6 +624,7 @@ def eval_one(
     videos_dir: Path | None,
     return_episode_data: bool,
     start_seed: int | None,
+    vis_noise: bool,
 ) -> TaskMetrics:
     """Evaluates one task_id of one suite using the provided vec env."""
 
@@ -641,6 +640,7 @@ def eval_one(
         videos_dir=task_videos_dir,
         return_episode_data=return_episode_data,
         start_seed=start_seed,
+        vis_noise=vis_noise,
     )
 
     per_episode = task_result["per_episode"]
@@ -665,6 +665,7 @@ def run_one(
     videos_dir: Path | None,
     return_episode_data: bool,
     start_seed: int | None,
+    vis_noise: bool,
 ):
     """
     Run eval_one for a single (task_group, task_id, env).
@@ -687,6 +688,7 @@ def run_one(
         videos_dir=task_videos_dir,
         return_episode_data=return_episode_data,
         start_seed=start_seed,
+        vis_noise=vis_noise,
     )
     # ensure we always provide video_paths key to simplify accumulation
     if max_episodes_rendered > 0:
@@ -706,6 +708,7 @@ def eval_policy_all(
     return_episode_data: bool = False,
     start_seed: int | None = None,
     max_parallel_tasks: int = 1,
+    vis_noise: bool = False
 ) -> dict:
     """
     Evaluate a nested `envs` dict: {task_group: {task_id: vec_env}}.
@@ -759,6 +762,7 @@ def eval_policy_all(
         videos_dir=videos_dir,
         return_episode_data=return_episode_data,
         start_seed=start_seed,
+        vis_noise=vis_noise,
     )
 
     if max_parallel_tasks <= 1:

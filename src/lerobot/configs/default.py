@@ -56,6 +56,11 @@ class EvalConfig:
     batch_size: int = 50
     # `use_async_envs` specifies whether to use asynchronous environments (multiprocessing).
     use_async_envs: bool = False
+        
+    # Visualization
+    vis_noise: bool = False
+    n_vis_step: int = 20
+
 
     def __post_init__(self):
         if self.batch_size > self.n_episodes:
