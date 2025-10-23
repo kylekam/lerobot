@@ -167,8 +167,10 @@ def rollout(
         observation = add_envs_task(env, observation)
         observation = preprocessor(observation)
         with torch.inference_mode():
-            action = policy.select_action(observation)
+            action, noise_to_traj = policy.select_action(observation)
         action = postprocessor(action)
+        if isinstance(noise_to_traj, Tensor):
+            noise_to_traj = postprocessor(noise_to_traj).numpy()
 
         # Convert to CPU / numpy.
         action_numpy: np.ndarray = action.to("cpu").numpy()
@@ -177,7 +179,7 @@ def rollout(
         # Apply the next action.
         observation, reward, terminated, truncated, info = env.step(action_numpy)
         if render_callback is not None:
-            render_callback(env)
+            render_callback(env, noise_to_traj)
 
         # VectorEnv stores is_success in `info["final_info"][env_index]["is_success"]`. "final_info" isn't
         # available if none of the envs finished.
@@ -295,6 +297,64 @@ def eval_policy(
         elif isinstance(env, gym.vector.AsyncVectorEnv):
             # Here we must render all frames and discard any we don't need.
             ep_frames.append(np.stack(env.call("render")[:n_to_render_now]))
+    
+
+    def render_diffusion_frame(env: gym.vector.VectorEnv, noise_to_traj: np.ndarray=None, num_steps: int=20):
+        # noqa: B023
+        if n_episodes_rendered >= max_episodes_rendered:
+            return
+        n_to_render_now = min(max_episodes_rendered - n_episodes_rendered, env.num_envs)
+
+        rendered_frames = np.stack([env.envs[i].render() for i in range(n_to_render_now)])
+        
+        import matplotlib 
+        matplotlib.use('agg')
+        import matplotlib.pyplot as plt
+        import io
+
+        # Define pixel dimensions
+        DPI = 100
+        WIDTH, HEIGHT = np.array(rendered_frames.shape)[[1,2]].tolist()
+        action_width, action_height = (env.action_space.high - env.action_space.low)[0].tolist()
+        scale_width = WIDTH/action_width
+        scale_height = HEIGHT/action_height
+        
+        def draw_pts_on_img(img, pts, colors):
+            fig = plt.figure(figsize=(WIDTH / DPI, HEIGHT / DPI), dpi=DPI)
+            ax = fig.add_axes([0, 0, 1, 1])
+            ax.set_xlim([0, img.shape[1]])
+            ax.set_ylim([img.shape[0], 0])
+            ax.set_axis_off()
+            ax.imshow(img)
+            pts = np.round(pts*[scale_width, scale_height]).astype(np.int32)
+            ax.scatter(pts[:, 0], pts[:, 1], c=colors, s=30)
+            fig.canvas.draw()
+            io_buf = io.BytesIO()
+            fig.savefig(io_buf, format='raw', dpi=DPI)
+            io_buf.seek(0)
+            result = np.reshape(np.frombuffer(io_buf.getvalue(), dtype=np.uint8),
+                                shape=(int(fig.bbox.bounds[2]), int(fig.bbox.bounds[3]), -1))[:,:,:3]
+            io_buf.close()
+            plt.close()        
+
+            return result
+
+        if env.num_envs != 1:
+            return ValueError("ERROR: Can only render one env at a time.")
+        
+        # Set figure size based on DPI
+        img = rendered_frames[0]
+        if isinstance(noise_to_traj, np.ndarray):
+            colors = plt.get_cmap('plasma')(np.linspace(0, 1, noise_to_traj.shape[1]))
+            for noised_action in noise_to_traj[-20:]: # iterate through timestep
+                result = draw_pts_on_img(img, noised_action, colors)
+                ep_frames.append(result[None,:])
+        # elif isinstance(action, np.ndarray):
+        #     colors = plt.get_cmap('plasma')(np.linspace(0, 1, len(action)))
+        #     result = draw_pts_on_img(img, action, colors)
+        #     ep_frames.append(result[None,:])
+        else:
+            ep_frames.append(rendered_frames)
 
     if max_episodes_rendered > 0:
         video_paths: list[str] = []
@@ -323,7 +383,7 @@ def eval_policy(
             postprocessor=postprocessor,
             seeds=list(seeds) if seeds else None,
             return_observations=return_episode_data,
-            render_callback=render_frame if max_episodes_rendered > 0 else None,
+            render_callback=render_diffusion_frame if max_episodes_rendered > 0 else None,
         )
 
         # Figure out where in each rollout sequence the first done condition was encountered (results after
@@ -373,6 +433,11 @@ def eval_policy(
             ):
                 if n_episodes_rendered >= max_episodes_rendered:
                     break
+                if True: # this math needs to be checked
+                    traj_len = policy.config.horizon
+                    num_init_frames = np.floor((done_index+1) / traj_len)
+                    actual_done_index = num_init_frames*20 + done_index + traj_len
+                    done_index = int(actual_done_index)
 
                 videos_dir.mkdir(parents=True, exist_ok=True)
                 video_path = videos_dir / f"eval_episode_{n_episodes_rendered}.mp4"
@@ -517,7 +582,7 @@ def eval_main(cfg: EvalPipelineConfig):
             preprocessor=preprocessor,
             postprocessor=postprocessor,
             n_episodes=cfg.eval.n_episodes,
-            max_episodes_rendered=10,
+            max_episodes_rendered=3,
             videos_dir=Path(cfg.output_dir) / "videos",
             start_seed=cfg.seed,
             max_parallel_tasks=cfg.env.max_parallel_tasks,
