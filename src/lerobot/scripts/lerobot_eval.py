@@ -319,15 +319,16 @@ def eval_policy(
         scale_width = WIDTH/action_width
         scale_height = HEIGHT/action_height
         
-        def draw_pts_on_img(img, pts, colors):
+        def draw_pts_on_img(img, pts=None, colors=None):
             fig = plt.figure(figsize=(WIDTH / DPI, HEIGHT / DPI), dpi=DPI)
             ax = fig.add_axes([0, 0, 1, 1])
             ax.set_xlim([0, img.shape[1]])
             ax.set_ylim([img.shape[0], 0])
             ax.set_axis_off()
             ax.imshow(img)
-            pts = np.round(pts*[scale_width, scale_height]).astype(np.int32)
-            ax.scatter(pts[:, 0], pts[:, 1], c=colors, s=30)
+            if pts is not None:
+                pts = np.round(pts*[scale_width, scale_height]).astype(np.int32)
+                ax.scatter(pts[:, 0], pts[:, 1], c=colors, s=30)
             fig.canvas.draw()
             io_buf = io.BytesIO()
             fig.savefig(io_buf, format='raw', dpi=DPI)
@@ -350,7 +351,8 @@ def eval_policy(
                 result = draw_pts_on_img(img, noised_action, colors)
                 ep_frames.append(result[None,:])
         else:
-            ep_frames.append(rendered_frames)
+            result = draw_pts_on_img(img) # this doesn't draw anything, but uses the plt draw function to make images uniform
+            ep_frames.append(result[None,:])
 
     if max_episodes_rendered > 0:
         video_paths: list[str] = []
