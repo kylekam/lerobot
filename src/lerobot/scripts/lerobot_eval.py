@@ -60,6 +60,10 @@ from functools import partial
 from pathlib import Path
 from pprint import pformat
 from typing import Any, TypedDict
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
+import io
 
 import einops
 import gymnasium as gym
@@ -308,11 +312,6 @@ def eval_policy(
 
         rendered_frames = np.stack([env.envs[i].render() for i in range(n_to_render_now)])
         
-        import matplotlib 
-        matplotlib.use('agg')
-        import matplotlib.pyplot as plt
-        import io
-
         # Define pixel dimensions
         DPI = 100
         WIDTH, HEIGHT = np.array(rendered_frames.shape)[[1,2]].tolist()
